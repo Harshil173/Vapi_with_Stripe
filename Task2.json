@@ -1,0 +1,382 @@
+{
+  "name": "Task2",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vapi-payment",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -896,
+        -432
+      ],
+      "id": "05a6d4a3-ff53-48b1-a7ea-5a3a7be870b5",
+      "name": "Receive Data from Vapi",
+      "webhookId": "11c8961f-da6c-40b9-88fa-e86c80e2d6be"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0bb5cea2-1915-47ac-8fe3-fa309e285743",
+              "name": "amount ",
+              "value": "={{ $json.body.Amount * 100 }}",
+              "type": "number"
+            },
+            {
+              "id": "e01b731f-ae01-4574-92a5-7185194e52d7",
+              "name": "currency",
+              "value": "={{ $json.body.Currency }}",
+              "type": "string"
+            },
+            {
+              "id": "3f6b1e14-3426-475d-b5b7-a6f582ea14ed",
+              "name": "name",
+              "value": "={{ $json.body.Name }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -656,
+        -432
+      ],
+      "id": "61c4f3cf-1d40-48c7-941f-80f04227c0e0",
+      "name": "Fetching out Amount, Currency, Name"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.stripe.com/v1/payment_intents",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer sk_test_51Se6TtCIHTYdtJXn5QsIYZ0K2JP6NMfvghRryhN75XW4wEJN63GO7HEfI6xTQBHBhJJUhRNBeVoMNLvHEsF1Ah2x00ksPIWdAG"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/x-www-form-urlencoded"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "form-urlencoded",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "amount",
+              "value": "={{ $json['amount '] }}"
+            },
+            {
+              "name": "currency",
+              "value": "={{ $json.currency }}"
+            },
+            {
+              "name": "payment_method_types[]",
+              "value": "card"
+            },
+            {
+              "name": "metadata[customer_name]",
+              "value": "={{ $json.name }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        -416,
+        -432
+      ],
+      "id": "84564f86-9419-4b26-b3f5-ff7f57659897",
+      "name": "Create Payment Intent",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "67630b12-2346-4afa-9843-595bc512fda4",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -176,
+        -432
+      ],
+      "id": "e96d2fec-ad34-4b58-97af-6e699b508040",
+      "name": "Checking Whether Intent is created or not"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"speech\": \"Payment of {{ $json.amount / 100 }} {{ $json.currency }} succeeded. Transaction ID: {{ $json.id }}\",\n  \"data\": {\n    \"transaction_id\": \"{{ $json.id }}\",\n    \"status\": \"success\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        80,
+        -592
+      ],
+      "id": "889e32c7-b318-44d8-a79f-80ccbd973db3",
+      "name": "Return on Success"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"speech\": \"Payment failed due to a processing error. Please try again.\",\n  \"data\": {\n    \"status\": \"failed\",\n    \"error\": \"{{ $json.error?.message || 'Unknown payment error' }}\"\n  }\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        80,
+        -336
+      ],
+      "id": "87e28f25-1b52-4983-ba3f-8b91cc2fbcca",
+      "name": "Return on Failure"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1NeZoCHrmLKCzpPRbwx2QA_8oNzsXfAsgKWNpimPv-CM",
+          "mode": "list",
+          "cachedResultName": "payment_errors",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NeZoCHrmLKCzpPRbwx2QA_8oNzsXfAsgKWNpimPv-CM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1NeZoCHrmLKCzpPRbwx2QA_8oNzsXfAsgKWNpimPv-CM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "customer_name": "={{ $('Fetching out Amount, Currency, Name').item.json.name }}",
+            "amount": "={{ $('Fetching out Amount, Currency, Name').item.json['amount '] }}",
+            "error_name": "={{ $json.error.name }}",
+            "error_message": "={{ JSON.stringify($json.error) }}",
+            "error_status": "={{ $json.error.status }}",
+            "error_code": "={{ $json.error.code }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "customer_name",
+              "displayName": "customer_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "amount",
+              "displayName": "amount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_name",
+              "displayName": "error_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_message",
+              "displayName": "error_message",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_status",
+              "displayName": "error_status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "error_code",
+              "displayName": "error_code",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        80,
+        -144
+      ],
+      "id": "f31e7271-71ea-405c-a1d3-07d7617948c6",
+      "name": "Log Raw Error",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4D85lu90C24zU5JY",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Receive Data from Vapi": [
+      {
+        "json": {
+          "headers": {
+            "host": "giuliana-jaspered-ligia.ngrok-free.dev",
+            "user-agent": "node-fetch/1.0 (+https://github.com/bitinn/node-fetch)",
+            "content-length": "49",
+            "accept": "*/*",
+            "accept-encoding": "gzip,deflate",
+            "baggage": "sentry-environment=production,sentry-release=9a6c3dac326d5f652a8566f6f661d61b88df3c99,sentry-public_key=a0021577936aec367b16615ad816c078,sentry-trace_id=05fbc7f87d8a4a7ab7f4b115873a2d5c",
+            "content-type": "application/json",
+            "sentry-trace": "05fbc7f87d8a4a7ab7f4b115873a2d5c-b58977d78ef59f75",
+            "x-forwarded-for": "146.235.224.251",
+            "x-forwarded-host": "giuliana-jaspered-ligia.ngrok-free.dev",
+            "x-forwarded-proto": "https",
+            "x-vapi-secret": ""
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "Name": "Harshay",
+            "Amount": 6000,
+            "Currency": ""
+          },
+          "webhookUrl": "http://localhost:5678/webhook/vapi-payment",
+          "executionMode": "production"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Receive Data from Vapi": {
+      "main": [
+        [
+          {
+            "node": "Fetching out Amount, Currency, Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetching out Amount, Currency, Name": {
+      "main": [
+        [
+          {
+            "node": "Create Payment Intent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Payment Intent": {
+      "main": [
+        [
+          {
+            "node": "Checking Whether Intent is created or not",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Checking Whether Intent is created or not": {
+      "main": [
+        [
+          {
+            "node": "Return on Success",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Return on Failure",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log Raw Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "84152e1f-a43e-4874-b808-d826d413631b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "14ce974961c8473c58c5ac17df9c56543b00d310a933a930527b375d2fe82607"
+  },
+  "id": "FyjgNDMrP03VM3Y9",
+  "tags": []
+}
